@@ -7,7 +7,6 @@ cat << "EOF"
 |   | |   | |   |=|   | |   | |   | |   | |   |=|_.' |   |      |   |/|   | |   |/|   | |   |/|   | |   |/|   |    |   | 
 |   | |  .' |   | |   | |   | |  .' |   | |   |  ___ |   |  ___ `.  | |  .' `.  | |  .' `.  | |  .' `.  | |  .'    |   | 
 |___|=|.'   |___| |___| |___| |.'   |___| |___|=|_.' |___|=|_.'   `.|=|.'     `.|=|.'     `.|=|.'     `.|=|.'      |___| 
-                                                                                                                          
 EOF
 
 # Ask the user for their moniker name
@@ -30,9 +29,10 @@ sudo apt -qy install curl git jq lz4 build-essential
 # Install Go
 sudo rm -rf /usr/local/go
 curl -Ls https://go.dev/dl/go1.20.12.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
-echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh
-echo 'export PATH=$PATH:$HOME/go/bin' | tee -a $HOME/.profile
-source $HOME/.profile
+echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' | sudo tee -a /etc/profile.d/gopath.sh
+
+# Inform user about manual action required after the script
+echo "Please run 'source /etc/profile.d/gopath.sh' or log out and log back in to apply the PATH update."
 
 # Clone and build the Babylon binaries
 cd $HOME
@@ -40,32 +40,21 @@ rm -rf babylon
 git clone https://github.com/babylonchain/babylon.git
 cd babylon
 git checkout v0.7.2
-make build
 
-# Prepare binaries for Cosmovisor
-mkdir -p $HOME/.babylond/cosmovisor/genesis/bin
-mv build/babylond $HOME/.babylond/cosmovisor/genesis/bin/
-rm -rf build
+# Build the binaries (to be executed after re-login or sourcing the profile)
+echo "After ensuring the PATH is updated, run the following commands manually:"
+echo "cd $HOME/babylon && make build"
 
-# Create application symlinks
-sudo ln -s $HOME/.babylond/cosmovisor/genesis $HOME/.babylond/cosmovisor/current -f
-sudo ln -s $HOME/.babylond/cosmovisor/current/bin/babylond /usr/local/bin/babylond -f
+# Prepare binaries for Cosmovisor (to be moved after building binaries)
+echo "Create the directory $HOME/.babylond/cosmovisor/genesis/bin and move the 'babylond' binary there after building it."
+
+# Create application symlinks (to be executed after binaries are moved)
+echo "After moving the binaries, run:"
+echo "sudo ln -s $HOME/.babylond/cosmovisor/genesis $HOME/.babylond/cosmovisor/current -f"
+echo "sudo ln -s $HOME/.babylond/cosmovisor/current/bin/babylond /usr/local/bin/babylond -f"
 
 # Install Cosmovisor
-go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
+echo "Install Cosmovisor by running 'go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest' after the PATH is updated."
 
 # Create and start the Babylon service
-sudo tee /etc/systemd/system/babylon.service > /dev/null << EOF
-[Unit]
-Description=babylon node service
-After=network-online.target
-[Service]
-User=$USER
-ExecStart=$(which cosmovisor) run start
-Restart=on-failure
-RestartSec=10
-LimitNOFILE=65535
-Environment="DAEMON_HOME=$HOME/.babylond"
-Environment="DAEMON_NAME=babylond"
-Environment="UNSAFE_SKIP_BACKUP=true"
-Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:$HOME/.babylond/cosmovisor/current
+echo "After completing the above steps, create the Babylon service file at /etc/systemd/system/babylon.service and start the service."
