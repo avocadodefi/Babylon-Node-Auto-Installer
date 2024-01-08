@@ -82,9 +82,10 @@ sudo tee /etc/systemd/system/babylon.service > /dev/null << EOF
 [Unit]
 Description=babylon node service
 After=network-online.target
+
 [Service]
 User=$USER
-ExecStart=$(which cosmovisor) run start
+ExecStart=/usr/local/bin/cosmovisor run start
 Restart=on-failure
 RestartSec=10
 LimitNOFILE=65535
@@ -92,6 +93,7 @@ Environment="DAEMON_HOME=$HOME/.babylond"
 Environment="DAEMON_NAME=babylond"
 Environment="UNSAFE_SKIP_BACKUP=true"
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:$HOME/.babylond/cosmovisor/current/bin"
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -105,3 +107,4 @@ sudo systemctl start babylon.service
 sudo journalctl -u babylon.service -f --no-hostname -o cat
 
 echo "Babylon Node setup completed successfully."
+
