@@ -71,28 +71,13 @@ babylond init "$MONIKER" --chain-id bbn-test-2
 # Download Genesis and Addrbook
 echo "Downloading Genesis file..."
 curl -Ls https://snapshots.kjnodes.com/babylon-testnet/genesis.json > $HOME/.babylond/config/genesis.json
-if [ ! -s $HOME/.babylond/config/genesis.json ]; then
-    echo "Failed to download Genesis file. Exiting..."
-    exit 1
-else
-    echo "Genesis file downloaded successfully."
-fi
-
 echo "Downloading Addrbook file..."
 curl -Ls https://snapshots.kjnodes.com/babylon-testnet/addrbook.json > $HOME/.babylond/config/addrbook.json
-if [ ! -s $HOME/.babylond/config/addrbook.json ]; then
-    echo "Failed to download Addrbook file. Exiting..."
-    exit 1
-else
-    echo "Addrbook file downloaded successfully."
-fi
-
 
 # Configure node settings
 sed -i -e "s|^seeds =.*|seeds = \"3f472746f46493309650e5a033076689996c8881@babylon-testnet.rpc.kjnodes.com:16459\"|" $HOME/.babylond/config/config.toml
 sed -i -e "s|^minimum-gas-prices *=.*|minimum-gas-prices = \"0.00001ubbn\"|" $HOME/.babylond/config/app.toml
 sed -i -e 's|^pruning *=.*|pruning = "custom"|' -e 's|^pruning-keep-recent *=.*|pruning-keep-recent = "100"|' -e 's|^pruning-keep-every *=.*|pruning-keep-every = "0"|' -e 's|^pruning-interval *=.*|pruning-interval = "19"|' $HOME/.babylond/config/app.toml
-sed -i -e "s%^proxy_app = \"tcp://127.0.0.1:26658\"%proxy_app = \"tcp://127.0.0.1:16458\"%g" -e "s%^laddr = \"tcp://127.0.0.1:26657\"%laddr = \"tcp://127.0.0.1:16457\"%g" -e "s%^pprof_laddr = \"localhost:6060\"%pprof_laddr = \"localhost:16460\"%g" -e "s%^laddr = \"tcp://0.0.0.0:26656\"%laddr = \"tcp://0.0.0.0:16456\"%g" -e "s%^prometheus_listen_addr = \":26660\"%prometheus_listen_addr = \":16466\"%g" $HOME/.babylond/config/config.toml
 
 # Create and start the Babylon service
 sudo tee /etc/systemd/system/babylon.service > /dev/null << EOF
@@ -116,5 +101,15 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable babylon.service
 sudo systemctl start babylon.service
+
+# Offer the user an option to check the node logs
+while true; do
+    read -p "Do you want to check the node logs? (yes/no): " yn
+    case $yn in
+        [Yy]* ) sudo journalctl -u babylon.service -f --no-hostname -o cat; break;;
+        [Nn]* ) echo "Exiting log viewer."; break;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
 
 echo "Babylon Node setup completed successfully."
