@@ -2,14 +2,18 @@
 
 echo "Starting the Babylon Node Auto-Installer..."
 
-# Display cool ASCII art header for "daniel00001"
+# Display ASCII "daniel00001"
 cat << "EOF"
-  [ __                __         __  ______  ______  ______  ______  ____   
-.--|  |.---.-..-----.|__|.-----.|  ||      ||      ||      ||      ||_   |  
-|  _  ||  _  ||     ||  ||  -__||  ||  --  ||  --  ||  --  ||  --  | _|  |_ 
-|_____||___._||__|__||__||_____||__||______||______||______||______||______|
-                                                                            
-]
+                   ,---.       .-._           .=-.-.      ,----.                  _.---.,_         _.---.,_         _.---.,_         _.---.,_      ,-----.--.  
+  _,..---._    .--.'  \     /==/ \  .-._   /==/_ /   ,-.--` , \    _.-.       .'  - , `.-,     .'  - , `.-,     .'  - , `.-,     .'  - , `.-,   /` ` - /==/  
+/==/,   -  \   \==\-/\ \    |==|, \/ /, / |==|, |   |==|-  _.-`  .-,.'|      / -  ,  ,_\==\   / -  ,  ,_\==\   / -  ,  ,_\==\   / -  ,  ,_\==\  `-'-. -|==|  
+|==|   _   _\  /==/-|_\ |   |==|-  \|  |  |==|  |   |==|   `.-. |==|, |     |     .=.   |==| |     .=.   |==| |     .=.   |==| |     .=.   |==|     | `|==|  
+|==|  .=.   |  \==\,   - \  |==| ,  | -|  |==|- |  /==/_ ,    / |==|- |     | -  :=; : _|==| | -  :=; : _|==| | -  :=; : _|==| | -  :=; : _|==|     | -|==|  
+|==|,|   | -|  /==/ -   ,|  |==| -   _ |  |==| ,|  |==|    .-'  |==|, |     |     `=` , |==| |     `=` , |==| |     `=` , |==| |     `=` , |==|     | `|==|  
+|==|  '='   / /==/-  /\ - \ |==|  /\ , |  |==|- |  |==|_  ,`-._ |==|- `-._   \ _,    - /==/   \ _,    - /==/   \ _,    - /==/   \ _,    - /==/    .-','|==|  
+|==|-,   _`/  \==\ _.\=\.-' /==/, | |- |  /==/. /  /==/ ,     / /==/ - , ,/   `.   - .`=.`     `.   - .`=.`     `.   - .`=.`     `.   - .`=.`    /     \==\  
+`-.`.____.'    `--`         `--`./  `--`  `--`-`   `--`-----``  `--`-----'      ``--'--'         ``--'--'         ``--'--'         ``--'--'      `-----`---` 
+
 EOF
 
 # Ask the user for their moniker name
@@ -28,9 +32,18 @@ sudo apt -qy install curl git jq lz4 build-essential
 # Install Go
 sudo rm -rf /usr/local/go
 curl -Ls https://go.dev/dl/go1.20.12.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
-echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh
+echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/gopath.sh
+source /etc/profile.d/gopath.sh
 echo 'export PATH=$PATH:$HOME/go/bin' | tee -a $HOME/.profile
 source $HOME/.profile
+
+# Confirm Go installation
+if ! command -v go &> /dev/null; then
+    echo "Go could not be installed correctly. Exiting..."
+    exit 1
+fi
+
+echo "Go installed successfully. Proceeding with Babylon setup..."
 
 # Clone and build the Babylon binaries
 cd $HOME
@@ -54,6 +67,22 @@ sudo ln -s $HOME/.babylond/cosmovisor/current/bin/babylond /usr/local/bin/babylo
 # Install Cosmovisor
 go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
 
+# Initialize the node
+babylond config chain-id bbn-test-2
+babylond config keyring-backend test
+babylond config node tcp://localhost:16457
+babylond init "$MONIKER" --chain-id bbn-test-2
+
+# Download Genesis and Addrbook
+curl -Ls https://snapshots.kjnodes.com/babylon-testnet/genesis.json > $HOME/.babylond/config/genesis.json
+curl -Ls https://snapshots.kjnodes.com/babylon-testnet/addrbook.json > $HOME/.babylond/config/addrbook.json
+
+# Configure node settings
+sed -i -e "s|^seeds =.*|seeds = \"3f472746f46493309650e5a033076689996c8881@babylon-testnet.rpc.kjnodes.com:16459\"|" $HOME/.babylond/config/config.toml
+sed -i -e "s|^minimum-gas-prices *=.*|minimum-gas-prices = \"0.00001ubbn\"|" $HOME/.babylond/config/app.toml
+sed -i -e 's|^pruning *=.*|pruning = "custom"|' -e 's|^pruning-keep-recent *=.*|pruning-keep-recent = "100"|' -e 's|^pruning-keep-every *=.*|pruning-keep-every = "0"|' -e 's|^pruning-interval *=.*|pruning-interval = "19"|' $HOME/.babylond/config/app.toml
+sed -i -e "s%^proxy_app = \"tcp://127.0.0.1:26658\"%proxy_app = \"tcp://127.0.0.1:16458\"%g" -e "s%^laddr = \"tcp://127.0.0.1:26657\"%laddr = \"tcp://127.0.0.1:16457\"%g" -e "s%^pprof_laddr = \"localhost:6060\"%pprof_laddr = \"localhost:16460\"%g" -e "s%^laddr = \"tcp://0.0.0.0:26656\"%laddr = \"tcp://0.0.0.0:16456\"%g" -e "s%^prometheus_listen_addr = \":26660\"%prometheus_listen_addr = \":16466\"%g" $HOME/.babylond/config/config.toml
+
 # Create and start the Babylon service
 sudo tee /etc/systemd/system/babylon.service > /dev/null << EOF
 [Unit]
@@ -75,29 +104,6 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable babylon.service
-
-# Initialize the node
-babylond config chain-id bbn-test-2
-babylond config keyring-backend test
-babylond config node tcp://localhost:16457
-babylond init $MONIKER --chain-id bbn-test-2
-
-# Download genesis and addrbook
-curl -Ls https://snapshots.kjnodes.com/babylon-testnet/genesis.json > $HOME/.babylond/config/genesis.json
-curl -Ls https://snapshots.kjnodes.com/babylon-testnet/addrbook.json > $HOME/.babylond/config/addrbook.json
-
-# Configure node settings
-sed -i -e "s|^seeds *=.*|seeds = \"3f472746f46493309650e5a033076689996c8881@babylon-testnet.rpc.kjnodes.com:16459\"|" $HOME/.babylond/config/config.toml
-sed -i -e "s|^minimum-gas-prices *=.*|minimum-gas-prices = \"0.00001ubbn\"|" $HOME/.babylond/config/app.toml
-sed -i -e 's|^pruning *=.*|pruning = "custom"|' -e 's|^pruning-keep-recent *=.*|pruning-keep-recent = "100"|' -e 's|^pruning-keep-every *=.*|pruning-keep-every = "0"|' -e 's|^pruning-interval *=.*|pruning-interval = "19"|' $HOME/.babylond/config/app.toml
-sed -i -e "s%^proxy_app = \"tcp://127.0.0.1:26658\"%proxy_app = \"tcp://127.0.0.1:16458\"%g" -e "s%^laddr = \"tcp://127.0.0.1:26657\"%laddr = \"tcp://127.0.0.1:16457\"%g" -e "s%^pprof_laddr = \"localhost:6060\"%pprof_laddr = \"localhost:16460\"%g" -e "s%^laddr = \"tcp://0.0.0.0:26656\"%laddr = \"tcp://0.0.0.0:16456\"%g" -e "s%^prometheus_listen_addr = \":26660\"%prometheus_listen_addr = \":16466\"%g" $HOME/.babylond/config/config.toml
-
-# Download the latest chain snapshot
-curl -L https://snapshots.kjnodes.com/babylon-testnet/snapshot_latest.tar.lz4 -o snapshot_latest.tar.lz4
-lz4 -d -c snapshot_latest.tar.lz4 | tar -xf - -C $HOME/.babylond
-
-# Start service and check logs
 sudo systemctl start babylon.service
-sudo journalctl -u babylon.service -f --no-hostname -o cat
 
-echo "Congratulations! You’ve successfully set up and started your Babylon node."
+echo "Babylon Node setup completed successfully."
