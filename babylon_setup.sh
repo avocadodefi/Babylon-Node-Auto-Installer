@@ -74,8 +74,24 @@ babylond config node tcp://localhost:16457
 babylond init "$MONIKER" --chain-id bbn-test-2
 
 # Download Genesis and Addrbook
+echo "Downloading Genesis file..."
 curl -Ls https://snapshots.kjnodes.com/babylon-testnet/genesis.json > $HOME/.babylond/config/genesis.json
+if [ ! -s $HOME/.babylond/config/genesis.json ]; then
+    echo "Failed to download Genesis file. Exiting..."
+    exit 1
+else
+    echo "Genesis file downloaded successfully."
+fi
+
+echo "Downloading Addrbook file..."
 curl -Ls https://snapshots.kjnodes.com/babylon-testnet/addrbook.json > $HOME/.babylond/config/addrbook.json
+if [ ! -s $HOME/.babylond/config/addrbook.json ]; then
+    echo "Failed to download Addrbook file. Exiting..."
+    exit 1
+else
+    echo "Addrbook file downloaded successfully."
+fi
+
 
 # Configure node settings
 sed -i -e "s|^seeds =.*|seeds = \"3f472746f46493309650e5a033076689996c8881@babylon-testnet.rpc.kjnodes.com:16459\"|" $HOME/.babylond/config/config.toml
