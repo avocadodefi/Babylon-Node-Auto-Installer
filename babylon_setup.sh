@@ -30,17 +30,32 @@ echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/gopath.sh
 source /etc/profile.d/gopath.sh
 export PATH=$PATH:/usr/local/go/bin
 
+# Check if Go is correctly installed
+if ! command -v go &> /dev/null; then
+    echo "Go could not be installed correctly. Exiting..."
+    exit 1
+fi
+
 # Clone and build the Babylon binaries
 cd $HOME
 rm -rf babylon
 git clone https://github.com/babylonchain/babylon.git
 cd babylon
 git checkout v0.7.2
-make build
+
+# Build the binaries and check if build was successful
+if ! make build; then
+    echo "Failed to build Babylon. Exiting..."
+    exit 1
+fi
 
 # Prepare binaries for Cosmovisor
 mkdir -p $HOME/.babylond/cosmovisor/genesis/bin
 mv build/babylond $HOME/.babylond/cosmovisor/genesis/bin/
+if [ ! -f "$HOME/.babylond/cosmovisor/genesis/bin/babylond" ]; then
+    echo "Babylon binary not found. Exiting..."
+    exit 1
+fi
 
 # Create application symlinks
 sudo ln -s $HOME/.babylond/cosmovisor/genesis $HOME/.babylond/cosmovisor/current -f
@@ -48,6 +63,12 @@ sudo ln -s $HOME/.babylond/cosmovisor/current/bin/babylond /usr/local/bin/babylo
 
 # Install Cosmovisor
 go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
+
+# Check if Cosmovisor is installed
+if ! command -v cosmovisor &> /dev/null; then
+    echo "Cosmovisor could not be installed correctly. Exiting..."
+    exit 1
+fi
 
 # Create and start the Babylon service
 sudo tee /etc/systemd/system/babylon.service > /dev/null << EOF
@@ -68,5 +89,8 @@ Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/
 WantedBy=multi-user.target
 EOF
 
+# Reload systemd and enable the service
 sudo systemctl daemon-reload
 sudo systemctl enable babylon.service
+
+echo "Babylon Node setup completed successfully."
