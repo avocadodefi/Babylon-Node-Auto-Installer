@@ -1,7 +1,8 @@
 
 # Babylon Node Auto-Installer
 
-![Babylon Logo]([URL_TO_YOUR_LOGO_IMAGE](https://github.com/avocadodefi/Babylon-Node-Auto-Installer/blob/main/Babylon_Node_Auto_Installer.jpg?raw=true))
+![Babylon Logo](https://github.com/avocadodefi/Babylon-Node-Auto-Installer/blob/main/Babylon_Node_Auto_Installer.jpg?raw=true)
+
 
 ## Installation Guide
 
